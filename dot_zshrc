@@ -1,0 +1,91 @@
+## $PATH.
+export PNPM_HOME="$HOME/Library/pnpm"
+export PATH="$PNPM_HOME:$HOME/bin:/usr/local/bin:$PATH"
+
+## zsh
+# theme See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
+ZSH_THEME="robbyrussell"
+
+## plugins
+plugins=(
+  git
+  zsh-autosuggestions
+  zsh-syntax-highlighting
+  zsh-history-substring-search
+)
+
+# Path to your oh-my-zsh installation.
+export ZSH="$HOME/.oh-my-zsh"
+source $ZSH/oh-my-zsh.sh
+
+# git-prompt
+source ~/.zsh/git-prompt.sh
+
+# git-completion
+fpath=(~/.zsh $fpath)
+zstyle ':completion:*:*:git:*' script ~/.zsh/git-completion.bash
+autoload -Uz compinit && compinit
+
+# prompt options
+GIT_PS1_SHOWDIRTYSTATE=true
+GIT_PS1_SHOWUNTRACKEDFILES=true
+GIT_PS1_SHOWSTASHSTATE=true
+GIT_PS1_SHOWUPSTREAM=auto
+# setopt PROMPT_SUBST ; PS1='%F{green}%n@%m%f: %F{cyan}%~%f %F{red}$(__git_ps1 "(%s)")%f\$ '
+
+# history size
+HISTSIZE=5000
+HISTFILESIZE=10000
+
+SAVEHIST=5000
+setopt EXTENDED_HISTORY
+HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history
+# share history across multiple zsh sessions
+setopt SHARE_HISTORY
+# append to history
+setopt APPEND_HISTORY
+# adds commands as they are typed, not at shell exit
+setopt INC_APPEND_HISTORY
+# do not store duplications
+setopt HIST_IGNORE_DUPS
+
+# system-wide environment settings for zsh(1)
+if [ -x /usr/libexec/path_helper ]; then
+    eval `/usr/libexec/path_helper -s`
+fi
+
+# tabtab source for packages
+# uninstall by removing these lines
+[[ -f ~/.zsh/tabtab/zsh/pnpm.zsh ]] && . ~/.zsh/tabtab/zsh/pnpm.zsh || true
+
+
+## alias
+alias ll="ls -lah"
+alias ..="cd ../"
+alias ..l="cd ../ && ll"
+alias dc="cd ~/Code"
+alias ds="cd ~/Study"
+alias rocaml="rlwrap ocaml"
+alias n="pnpm"
+alias ni="pnpm install"
+alias nc="pnpm create"
+alias prl="gh pr list"
+alias prc="gh pr checkout"
+
+function homestead() { cd ~/Vagrant/homestead && vagrant $* ;}
+function cdl() { cd "$@" && ll; }
+function killport() { lsof -i tcp:"$*" | awk 'NR!=1 {print $2}' | xargs kill -9 ;}
+
+
+## GCP SDK
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '$HOME/Tools/google-cloud-sdk/path.zsh.inc' ]; then . '$HOME/Tools/google-cloud-sdk/path.zsh.inc'; fi
+# The next line enables shell command completion for gcloud.
+if [ -f '$HOME/Tools/google-cloud-sdk/completion.zsh.inc' ]; then . '$HOME/Tools/google-cloud-sdk/completion.zsh.inc'; fi
+
+# enable fnm and corepack on cd
+eval "$(fnm env --use-on-cd)"
+eval "$(corepack enable)"
+
+# rust
+source ~/.cargo/env
