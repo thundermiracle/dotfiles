@@ -9,9 +9,6 @@ ZSH_THEME="robbyrussell"
 ## plugins
 plugins=(
   git
-  zsh-autosuggestions
-  zsh-syntax-highlighting
-  zsh-history-substring-search
 )
 
 # Path to your oh-my-zsh installation.
@@ -20,6 +17,15 @@ source $ZSH/oh-my-zsh.sh
 
 # git-prompt
 source ~/.zsh/git-prompt.sh
+
+# zsh-autosuggestions
+source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+# zsh-syntax-highlighting.zsh
+source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# tabtab source for packages
+[[ -f ~/.zsh/tabtab/pnpm.zsh ]] && . ~/.zsh/tabtab/pnpm.zsh || true
 
 # git-completion
 fpath=(~/.zsh $fpath)
@@ -53,11 +59,6 @@ setopt HIST_IGNORE_DUPS
 if [ -x /usr/libexec/path_helper ]; then
     eval `/usr/libexec/path_helper -s`
 fi
-
-# tabtab source for packages
-# uninstall by removing these lines
-[[ -f ~/.zsh/tabtab/zsh/pnpm.zsh ]] && . ~/.zsh/tabtab/zsh/pnpm.zsh || true
-
 
 ## alias
 alias ll="ls -lah"
