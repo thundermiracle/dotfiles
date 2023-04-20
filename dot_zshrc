@@ -70,12 +70,17 @@ alias rocaml="rlwrap ocaml"
 alias n="pnpm"
 alias ni="pnpm install"
 alias nc="pnpm create"
-alias prl="gh pr list"
-alias prc="gh pr checkout"
 
 function homestead() { cd ~/Vagrant/homestead && vagrant $* ;}
 function cdl() { cd "$@" && ll; }
 function killport() { lsof -i tcp:"$*" | awk 'NR!=1 {print $2}' | xargs kill -9 ;}
+function pr() {
+  if [ $1 = "ls" ]; then
+    gh pr list
+  else
+    gh pr checkout $1
+  fi
+}
 
 
 ## GCP SDK
