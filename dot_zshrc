@@ -95,3 +95,11 @@ eval "$(corepack enable)"
 
 # rust
 source ~/.cargo/env
+
+## pyenv
+if which pyenv > /dev/null 2>&1; then
+  eval "$(pyenv init -)"
+fi
+
+## Python
+alias py="python $@"
