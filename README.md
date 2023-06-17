@@ -15,6 +15,11 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 
 # Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Fig
+brew install fig
+# if necessary
+fig doctor
 ```
 
 ## Install chezmoi

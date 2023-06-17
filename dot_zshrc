@@ -1,3 +1,6 @@
+# Fig pre block. Keep at the top of this file.
+[[ -f "$HOME/.fig/shell/zshrc.pre.zsh" ]] && builtin source "$HOME/.fig/shell/zshrc.pre.zsh"
+
 ## $PATH.
 export PNPM_HOME="$HOME/Library/pnpm"
 export PATH="$PNPM_HOME:$HOME/bin:/usr/local/bin:$PATH"
@@ -68,6 +71,7 @@ alias dc="cd ~/Code"
 alias ds="cd ~/Study"
 alias rocaml="rlwrap ocaml"
 alias n="pnpm"
+
 alias ni="pnpm install"
 alias nc="pnpm create"
 
@@ -103,3 +107,6 @@ fi
 
 ## Python
 alias py="python $@"
+
+# Fig post block. Keep at the bottom of this file.
+[[ -f "$HOME/.fig/shell/zshrc.post.zsh" ]] && builtin source "$HOME/.fig/shell/zshrc.post.zsh"
