@@ -40,4 +40,3 @@ chezmoi apply -v
    # add followings
    /.local/bin
    ```
-3. 
