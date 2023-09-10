@@ -72,8 +72,9 @@ alias ds="cd ~/Study"
 alias rocaml="rlwrap ocaml"
 alias n="pnpm"
 
-alias ni="pnpm install"
-alias nc="pnpm create"
+# use @antfu/ni instead
+# alias ni="pnpm install"
+# alias nc="pnpm create"
 
 function homestead() { cd ~/Vagrant/homestead && vagrant $* ;}
 function cdl() { cd "$@" && ll; }
