@@ -28,7 +28,3 @@ refreshPeriod = "168h"
 type = "file"
 url = "https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh"
 refreshPeriod = "168h"
-[".zsh/tabtab-pnpm.zsh"]
-type = "file"
-url = "https://raw.githubusercontent.com/denosaurs/tabtab/main/scripts/zsh.sh"
-refreshPeriod = "168h"
