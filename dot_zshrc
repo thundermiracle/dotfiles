@@ -26,9 +26,6 @@ source $ZSH/oh-my-zsh.sh
 # git-prompt
 source ~/.zsh/git-prompt.sh
 
-# tabtab source for packages
-[[ -f ~/.zsh/tabtab-pnpm.zsh ]] && . ~/.zsh/tabtab-pnpm.zsh || true
-
 # git-completion
 fpath=(~/.zsh $fpath)
 zstyle ':completion:*:*:git:*' script ~/.zsh/git-completion.bash
