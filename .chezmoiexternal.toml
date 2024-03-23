@@ -16,3 +16,19 @@ url = "https://github.com/zsh-users/zsh-syntax-highlighting/archive/master.tar.g
 exact = true
 stripComponents = 1
 refreshPeriod = "168h"
+[".zsh/_git"]
+type = "file"
+url = "https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh"
+refreshPeriod = "168h"
+[".zsh/git-completion.bash"]
+type = "file"
+url = "https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash"
+refreshPeriod = "168h"
+[".zsh/git-prompt.sh"]
+type = "file"
+url = "https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh"
+refreshPeriod = "168h"
+[".zsh/tabtab-pnpm.zsh"]
+type = "file"
+url = "https://raw.githubusercontent.com/denosaurs/tabtab/main/scripts/zsh.sh"
+refreshPeriod = "168h"
