@@ -11,7 +11,7 @@ packages:
     - 'visual-studio-code'
     - 'codewhisperer'
     - 'slack'
-    - 'spark'
+    - 'readdle-spark'
     - 'brave-browser'
     - 'hyper'
     - 'raycast'
