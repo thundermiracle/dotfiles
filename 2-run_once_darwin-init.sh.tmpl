@@ -1,0 +1,13 @@
+{{ if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+
+# install nodejs
+fnm install 20
+
+# install @antfu/ni
+pnpm install -g @antfu/ni
+
+# install rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+{{ end -}}

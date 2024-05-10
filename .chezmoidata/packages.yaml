@@ -6,7 +6,7 @@ packages:
     - 'gh'
     - 'curl'
     - 'fnm'
-    - 'rust'
+    - 'gcc'
     casks:
     - 'visual-studio-code'
     - 'codewhisperer'
