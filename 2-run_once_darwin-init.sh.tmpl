@@ -13,7 +13,11 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 # install wasm-rust
 cargo install wasm-pack
 
+# install AWS CDK CLI
+pnpm install -g aws-cdk
+
 # install 1pass plugin aws
 op plugin init aws
+op plugin init cdk
 
 {{ end -}}
