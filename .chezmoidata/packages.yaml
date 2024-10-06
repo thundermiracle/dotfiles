@@ -11,7 +11,7 @@ packages:
     - 'awscli'
     casks:
     - 'visual-studio-code'
-    - 'codewhisperer'
+    - 'amazon-q'
     - 'slack'
     - 'readdle-spark'
     - 'brave-browser'
