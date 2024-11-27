@@ -1,14 +1,21 @@
 {{ if eq .chezmoi.os "darwin" -}}
-#!/bin/bash
+#!/bin/zsh
 
 # install nodejs
 fnm install 20
+fnm default 20
 
 # install @antfu/ni
 pnpm install -g @antfu/ni
 
 # install rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# apply settings
+zsh $HOME/.zshrc
+
+# apply pnpm
+corepack enable pnpm
 
 # install wasm-rust
 cargo install wasm-pack
@@ -17,6 +24,7 @@ cargo install wasm-pack
 pnpm install -g aws-cdk
 
 # install 1pass plugin aws
+eval $(op signin)
 op plugin init aws
 op plugin init cdk
 
