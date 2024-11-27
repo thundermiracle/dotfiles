@@ -7,7 +7,6 @@ packages:
     - 'curl'
     - 'fnm'
     - 'gcc'
-    - '1password-cli'
     - 'awscli'
     casks:
     - 'visual-studio-code'
@@ -17,4 +16,5 @@ packages:
     - 'brave-browser'
     - 'hyper'
     - 'raycast'
+    - '1password-cli'
     - '1password'
