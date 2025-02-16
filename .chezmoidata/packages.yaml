@@ -8,8 +8,10 @@ packages:
     - 'fnm'
     - 'gcc'
     - 'awscli'
+    - 'fish'
     casks:
     - 'visual-studio-code'
+    - 'windsurf'
     - 'amazon-q'
     - 'slack'
     - 'readdle-spark'
