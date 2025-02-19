@@ -10,6 +10,7 @@ ZSH_THEME="robbyrussell"
 
 ## plugins
 plugins=(
+  zsh-autosuggestions
   zsh-syntax-highlighting
 )
 
