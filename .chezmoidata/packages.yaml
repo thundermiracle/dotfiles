@@ -12,7 +12,7 @@ packages:
     casks:
     - 'visual-studio-code'
     - 'windsurf'
-    - 'amazon-q'
+    - 'kiro-cli'
     - 'slack'
     - 'readdle-spark'
     - 'brave-browser'
