@@ -1,0 +1,7 @@
+{{ if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+
+{{ range .packages.darwin.npm_globals -}}
+npm install -g {{ . | quote }}
+{{ end -}}
+{{ end -}}

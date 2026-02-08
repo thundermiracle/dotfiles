@@ -5,9 +5,6 @@
 fnm install 20
 fnm default 20
 
-# install @antfu/ni
-pnpm install -g @antfu/ni
-
 # install rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
@@ -19,9 +16,6 @@ corepack enable pnpm
 
 # install wasm-rust
 cargo install wasm-pack
-
-# install AWS CDK CLI
-pnpm install -g aws-cdk
 
 # install 1pass plugin aws
 eval $(op signin)

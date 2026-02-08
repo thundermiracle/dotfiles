@@ -20,3 +20,7 @@ packages:
     - 'raycast'
     - '1password-cli'
     - '1password'
+    npm_globals:
+    - '@antfu/ni'
+    - 'aws-cdk'
+    - 'skills'
