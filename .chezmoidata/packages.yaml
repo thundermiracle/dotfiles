@@ -9,9 +9,9 @@ packages:
     - 'gcc'
     - 'awscli'
     - 'fish'
+    - 'herdr'
     casks:
     - 'visual-studio-code'
-    - 'windsurf'
     - 'kiro-cli'
     - 'slack'
     - 'readdle-spark'
@@ -24,3 +24,7 @@ packages:
     - '@antfu/ni'
     - 'aws-cdk'
     - 'skills'
+    agent_skills:
+    - repo: 'herdrdev/herdr'
+      skill: 'herdr'
+      agent: 'claude-code'

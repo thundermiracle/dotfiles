@@ -1,0 +1,7 @@
+{{ if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+
+{{ range .packages.darwin.agent_skills -}}
+npx -y skills add {{ .repo | quote }} --skill {{ .skill | quote }} --agent {{ .agent | quote }} -g -y
+{{ end -}}
+{{ end -}}
