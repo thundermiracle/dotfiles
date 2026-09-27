@@ -12,6 +12,7 @@ packages:
     casks:
     - 'visual-studio-code'
     - 'kiro-cli'
+    - 'codex'
     - 'slack'
     - 'readdle-spark'
     - 'brave-browser'
