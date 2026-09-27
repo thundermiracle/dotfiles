@@ -6,7 +6,6 @@ packages:
     - 'gh'
     - 'curl'
     - 'fnm'
-    - 'gcc'
     - 'awscli'
     - 'fish'
     - 'herdr'
