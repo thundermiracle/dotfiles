@@ -1,0 +1,6 @@
+onboarding = false
+
+[ui.sound]
+# 質問・承認待ち（blocked）の時だけ差し替え。完了音はデフォルトのまま
+# sounds/request.mp3: VOICEVOX:離途（「質問があります」）
+request_path = "sounds/request.mp3"

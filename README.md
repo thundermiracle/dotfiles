@@ -26,3 +26,7 @@ chezmoi apply -v
    # add followings
    /.local/bin
    ```
+
+## Credits
+
+- herdr request sound (`~/.config/herdr/sounds/request.mp3`): VOICEVOX:離途
