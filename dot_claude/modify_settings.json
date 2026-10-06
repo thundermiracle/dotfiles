@@ -1,0 +1,40 @@
+#!/bin/bash
+# ~/.claude/settings.json の statusLine だけを chezmoi で管理する。
+# ほかの項目は Claude Code 自身も書き換えるので触らない。
+# chezmoi が今の中身を標準入力で渡し、標準出力の内容でファイルを置き換える。
+#
+# statusLine: effort-recorder.sh がセッションごとの effort を記録し、
+# herdr がペインを復元するときに claude shim が --effort として付け足す。
+
+status_line='{"type":"command","command":"~/.claude/effort-recorder.sh","refreshInterval":10}'
+
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp" "$tmp.out"' EXIT
+cat >"$tmp"
+
+if ! command -v jq >/dev/null 2>&1; then
+  if [ -s "$tmp" ]; then
+    echo "modify_settings.json: jq がないので ~/.claude/settings.json の statusLine は設定しません" >&2
+    cat "$tmp"
+  else
+    # まだファイルがない（新しい PC）ときは jq なしで作る
+    cat <<'EOF'
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/effort-recorder.sh",
+    "refreshInterval": 10
+  }
+}
+EOF
+  fi
+  exit 0
+fi
+
+[ -s "$tmp" ] || echo '{}' >"$tmp"
+if jq --argjson s "$status_line" '.statusLine = $s' "$tmp" >"$tmp.out"; then
+  cat "$tmp.out"
+else
+  echo "modify_settings.json: ~/.claude/settings.json が JSON として読めないので変更しません" >&2
+  cat "$tmp"
+fi

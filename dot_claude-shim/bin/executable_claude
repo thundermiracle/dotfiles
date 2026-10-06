@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# claude shim — herdr でペインを復元したときに effort も戻す
+#
+# herdr は Claude のペインを復元するとき、ペインのシェルに `claude --resume <id>` を打ち込む。
+# Claude Code は resume でモデルは戻すが effort はモデルの保存値に戻すので、
+# ~/.claude/effort-recorder.sh が記録したそのセッションの effort を --effort として付け足す。
+#
+# 付け足すのは次をすべて満たすときだけ。それ以外の起動は引数を変えずに本物へ渡す。
+#   - 引数に --resume <uuid> / -r <uuid> / --resume=<uuid> がある
+#   - --effort が指定されていない
+#   - CLAUDE_CODE_EFFORT_LEVEL が設定されていない（--effort とどちらが勝つか未確認のため）
+#   - ~/.cache/claude-effort/<uuid> に有効な値が記録されている
+#
+# このディレクトリは PATH の先頭に置く（~/.zshrc の最後で追加。.zshenv だと path_helper に負ける）。
+
+EFFORT_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/claude-effort"
+UUID_RE='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+
+# 本物の claude: PATH のうち、この shim 自身のディレクトリ以外で最初に見つかるもの
+real_claude=/usr/local/bin/claude
+self_dir=$(cd "$(dirname "$0")" && pwd -P)
+IFS=: read -r -a path_dirs <<<"$PATH"
+for dir in "${path_dirs[@]}"; do
+  [ -n "$dir" ] && [ -f "$dir/claude" ] && [ -x "$dir/claude" ] || continue
+  [ "$(cd "$dir" 2>/dev/null && pwd -P)" = "$self_dir" ] && continue
+  real_claude="$dir/claude"
+  break
+done
+
+sid=
+has_effort=
+prev=
+for arg in "$@"; do
+  [ "$arg" = -- ] && break
+  case "$prev" in
+    --resume | -r) sid=$arg ;;
+  esac
+  case "$arg" in
+    --effort | --effort=*) has_effort=1 ;;
+    --resume=*) sid=${arg#--resume=} ;;
+  esac
+  prev=$arg
+done
+
+if [ -z "$has_effort" ] && [ -z "${CLAUDE_CODE_EFFORT_LEVEL:-}" ] &&
+  [[ $sid =~ $UUID_RE ]] && [ -r "$EFFORT_DIR/$sid" ]; then
+  level=
+  IFS= read -r level <"$EFFORT_DIR/$sid"
+  case "$level" in
+    low | medium | high | xhigh | max)
+      # 元の引数より前に置く（`--` 以降に付くとプロンプト扱いになるため）
+      exec "$real_claude" --effort "$level" "$@"
+      ;;
+  esac
+fi
+
+exec "$real_claude" "$@"
