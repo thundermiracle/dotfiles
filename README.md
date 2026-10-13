@@ -30,4 +30,3 @@ chezmoi apply -v
 ## Credits
 
 - herdr request sound (`~/.config/herdr/sounds/request-voidoll.mp3`): VOICEVOX:Voidoll(CV:丹下桜)
-- herdr completion sound (`~/.config/herdr/sounds/complete-voidoll.mp3`): VOICEVOX:Voidoll(CV:丹下桜)
