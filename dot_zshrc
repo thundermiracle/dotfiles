@@ -87,6 +87,16 @@ alias py="python $@"
 export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
 ## 1password plugins
 source ~/.config/op/plugins.sh
+# skip 1password when temporary aws credentials are already exported
+_op_aws() {
+  if [[ -n $AWS_ACCESS_KEY_ID && -n $AWS_SESSION_TOKEN ]]; then
+    command "$@"
+  else
+    op plugin run -- "$@"
+  fi
+}
+aws() { _op_aws aws "$@" }
+cdk() { _op_aws cdk "$@" }
 
 ## claude shim: adds the recorded --effort when herdr resumes a Claude pane
 # keep after path_helper/fnm/pyenv, which move /usr/local/bin (the real claude) ahead
