@@ -8,6 +8,7 @@ packages:
     - 'fnm'
     - 'awscli'
     - 'fish'
+    brews_arm64:
     - 'herdr'
     casks:
     - 'visual-studio-code'

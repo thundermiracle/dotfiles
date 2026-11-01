@@ -16,3 +16,10 @@ url = "https://github.com/zsh-users/zsh-syntax-highlighting/archive/master.tar.g
 exact = true
 stripComponents = 1
 refreshPeriod = "168h"
+{{ if and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") -}}
+["bin/herdr"]
+type = "file"
+url = "https://github.com/herdrdev/herdr/releases/latest/download/herdr-macos-x86_64"
+executable = true
+refreshPeriod = "168h"
+{{ end -}}
