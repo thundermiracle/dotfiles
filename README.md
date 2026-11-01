@@ -16,6 +16,23 @@ chezmoi diff
 chezmoi apply -v
 ```
 
+## Containers
+
+- Intel Macs use Docker Desktop, which is installed manually and not managed by chezmoi.
+- Apple Silicon Macs use Podman. `~/bin/docker` forwards `docker` commands to `podman`.
+
+Run this once on an Apple Silicon Mac after `chezmoi apply`:
+
+```shell
+podman machine init
+```
+
+The VM does not start at login. Start it when you need containers:
+
+```shell
+podman machine start
+```
+
 ## Trouble shooting
 
 1. throws error `PATH contains ~/.local/bin and ~/.fig/bin: Path does not contain ~/.local/bin` when running fig doctor

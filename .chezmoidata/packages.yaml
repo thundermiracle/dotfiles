@@ -10,6 +10,8 @@ packages:
     - 'fish'
     brews_arm64:
     - 'herdr'
+    - 'podman'
+    - 'docker-compose'
     casks:
     - 'visual-studio-code'
     - 'kiro-cli'
