@@ -13,11 +13,10 @@ packages:
     - 'podman'
     - 'docker-compose'
     casks:
-    - 'visual-studio-code'
+    - 'zed'
     - 'kiro-cli'
     - 'codex'
     - 'slack'
-    - 'readdle-spark'
     - 'brave-browser'
     - 'hyper'
     - 'raycast'
