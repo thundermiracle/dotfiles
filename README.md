@@ -16,6 +16,13 @@ chezmoi diff
 chezmoi apply -v
 ```
 
+## Intel Macs
+
+Homebrew no longer builds bottles for Intel Macs, so `brew bundle` skips upgrades there and some CLI tools come from elsewhere:
+
+- `herdr`, `glow` and `bat` are downloaded from their GitHub releases to `~/bin` (`.chezmoiexternal.toml`).
+- `git-delta` is built with `cargo install`. Install [rustup](https://rustup.rs) before `chezmoi apply`.
+
 ## Containers
 
 - Intel Macs use Docker Desktop, which is installed manually and not managed by chezmoi.

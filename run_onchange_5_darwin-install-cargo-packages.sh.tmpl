@@ -1,0 +1,13 @@
+{{ if and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64") -}}
+#!/bin/bash
+# Re-runs when delta publishes a new release: {{ (gitHubLatestRelease "dandavison/delta").TagName }}
+set -e
+export PATH="$HOME/.cargo/bin:$PATH"
+
+if ! command -v cargo >/dev/null; then
+  echo "cargo not found. Install rustup (https://rustup.rs), then run chezmoi apply again." >&2
+  exit 1
+fi
+
+cargo install --locked{{ range .packages.darwin.cargo_amd64 }} {{ . | quote }}{{ end }}
+{{ end -}}

@@ -12,6 +12,13 @@ packages:
     - 'herdr'
     - 'podman'
     - 'docker-compose'
+    - 'glow'
+    - 'bat'
+    - 'git-delta'
+    # Intel Macs get glow and bat from .chezmoiexternal.toml. delta ships no
+    # x86_64 macOS binary, so it is built with cargo (rustup) instead.
+    cargo_amd64:
+    - 'git-delta'
     casks:
     - 'zed'
     - 'kiro-cli'

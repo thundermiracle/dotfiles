@@ -22,4 +22,16 @@ type = "file"
 url = "https://github.com/herdrdev/herdr/releases/latest/download/herdr-macos-x86_64"
 executable = true
 refreshPeriod = "168h"
+["bin/glow"]
+type = "archive-file"
+url = {{ gitHubLatestReleaseAssetURL "charmbracelet/glow" "glow_*_Darwin_x86_64.tar.gz" | quote }}
+stripComponents = 1
+path = "glow"
+executable = true
+["bin/bat"]
+type = "archive-file"
+url = {{ gitHubLatestReleaseAssetURL "sharkdp/bat" "bat-*-x86_64-apple-darwin.tar.gz" | quote }}
+stripComponents = 1
+path = "bat"
+executable = true
 {{ end -}}
