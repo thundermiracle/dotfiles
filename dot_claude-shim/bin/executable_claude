@@ -16,16 +16,25 @@
 EFFORT_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/claude-effort"
 UUID_RE='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
 
-# 本物の claude: PATH のうち、この shim 自身のディレクトリ以外で最初に見つかるもの
-real_claude=/usr/local/bin/claude
+# 本物の claude: PATH のうち、この shim 自身のディレクトリ以外で最初に見つかるもの。
+# PATH になければ、インストール方法ごとの既定の場所を順に探す。
+#   ~/.local/bin       公式インストーラ
+#   /opt/homebrew/bin  Apple Silicon の Homebrew
+#   /usr/local/bin     Intel の Homebrew
+real_claude=
 self_dir=$(cd "$(dirname "$0")" && pwd -P)
 IFS=: read -r -a path_dirs <<<"$PATH"
-for dir in "${path_dirs[@]}"; do
+for dir in "${path_dirs[@]}" "$HOME/.local/bin" /opt/homebrew/bin /usr/local/bin; do
   [ -n "$dir" ] && [ -f "$dir/claude" ] && [ -x "$dir/claude" ] || continue
   [ "$(cd "$dir" 2>/dev/null && pwd -P)" = "$self_dir" ] && continue
   real_claude="$dir/claude"
   break
 done
+
+if [ -z "$real_claude" ]; then
+  echo "claude shim: real claude not found in PATH, ~/.local/bin, /opt/homebrew/bin or /usr/local/bin" >&2
+  exit 127
+fi
 
 sid=
 has_effort=

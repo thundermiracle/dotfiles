@@ -2,7 +2,8 @@
 [ -x ~/.local/bin/kiro-cli ] && eval "$(~/.local/bin/kiro-cli init zsh pre --rcfile zshrc)"
 ## $PATH.
 export PNPM_HOME="$HOME/Library/pnpm"
-export PATH="$PNPM_HOME:$HOME/bin:/usr/local/bin:$PATH"
+# ~/.local/bin: claude (official installer) and kiro-cli
+export PATH="$PNPM_HOME:$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 
 ## zsh
 # theme See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
