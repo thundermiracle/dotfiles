@@ -12,10 +12,12 @@ if [ ! -x "$herdr" ]; then
 fi
 
 # `herdr plugin install` reinstalls a plugin that is already installed, so skip those.
+# The repository goes before --yes: herdr 0.9.1 and older exit with a usage error
+# when an option comes first (herdrdev/herdr#4446).
 installed=$("$herdr" plugin list)
 {{ range .packages.darwin.herdr_plugins -}}
 if [[ $installed != *"[github:{{ . }}@"* ]]; then
-  "$herdr" plugin install --yes {{ . | quote }}
+  "$herdr" plugin install {{ . | quote }} --yes
 fi
 {{ end -}}
 {{ end -}}

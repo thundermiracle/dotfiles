@@ -2,8 +2,10 @@
 [ -x ~/.local/bin/kiro-cli ] && eval "$(~/.local/bin/kiro-cli init zsh pre --rcfile zshrc)"
 ## $PATH.
 export PNPM_HOME="$HOME/Library/pnpm"
-# ~/.local/bin: claude (official installer) and kiro-cli
-export PATH="$PNPM_HOME:$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+export PATH="$PNPM_HOME:$HOME/bin:/usr/local/bin:$PATH"
+# ~/.local/bin: claude (official installer) and kiro-cli. Appended, not prepended, so
+# old binaries that curl installers left there (herdr's install.sh) don't shadow Homebrew's.
+export PATH="$PATH:$HOME/.local/bin"
 
 ## zsh
 # theme See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
