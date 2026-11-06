@@ -33,6 +33,8 @@ packages:
     - '@antfu/ni'
     - 'aws-cdk'
     - 'skills'
+    herdr_plugins:
+    - 'smarzban/herdr-file-viewer'
     agent_skills:
     - repo: 'herdrdev/herdr'
       skill: 'herdr'

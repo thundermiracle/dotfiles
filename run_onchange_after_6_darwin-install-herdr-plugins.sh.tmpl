@@ -1,0 +1,21 @@
+{{ if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+# An after_ script, so herdr is already installed: brew installs it on Apple
+# Silicon Macs, and .chezmoiexternal.toml downloads it to ~/bin on Intel Macs.
+set -e
+
+herdr=$(command -v herdr || true)
+[ -n "$herdr" ] || herdr="$HOME/bin/herdr"
+if [ ! -x "$herdr" ]; then
+  echo "herdr not found. Install herdr, then run chezmoi apply again." >&2
+  exit 1
+fi
+
+# `herdr plugin install` reinstalls a plugin that is already installed, so skip those.
+installed=$("$herdr" plugin list)
+{{ range .packages.darwin.herdr_plugins -}}
+if [[ $installed != *"[github:{{ . }}@"* ]]; then
+  "$herdr" plugin install --yes {{ . | quote }}
+fi
+{{ end -}}
+{{ end -}}
