@@ -24,7 +24,6 @@ packages:
     - 'kiro-cli'
     - 'codex'
     - 'slack'
-    - 'brave-browser'
     - 'hyper'
     - 'raycast'
     - '1password-cli'
