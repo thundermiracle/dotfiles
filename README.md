@@ -52,6 +52,15 @@ herdr-app runs on herdr-core, not on herdr. The VPS gets herdr-core so herdr-app
 The request sound (`~/.config/herdr/sounds/request-voidoll.mp3`) is set in `~/.config/herdr/config.toml` for herdr and in `~/.config/herdr-app/settings.json` (`sounds.blocked`) for herdr-app.
 The sound plays where the window is, not where the agent runs, so a VPS plays nothing itself. To hear the VPS's agents, open the VPS from a Mac: in herdr-app, add it as a machine; in herdr, run `herdr --remote <host>`.
 
+herdr-app also gets the `main-dots` layout: Herdr's `main` layout with `mods/spaces-dots`, a copy of its `spaces` mod that shows herdr's state dot before each space's name instead of the initial's avatar. Switch to it once (the choice is kept):
+
+```shell
+herdr-app check ~/.config/herdr-app/mods/spaces-dots
+herdr-app do layout.switch --name main-dots
+```
+
+`ctrl-shift-l` cycles back to `main`. The copies don't update with herdr-app; to pick up a newer `spaces` mod, copy it again and redo the change described at the top of `main.js`.
+
 ## Containers
 
 - Intel Macs use Docker Desktop, which is installed manually and not managed by chezmoi.
