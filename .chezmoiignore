@@ -1,1 +1,5 @@
 .oh-my-zsh/cache/**
+{{- /* herdr-app is installed on Apple Silicon Macs only (packages.yaml casks_arm64). */}}
+{{ if not (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "arm64")) }}
+.config/herdr-app/
+{{ end }}

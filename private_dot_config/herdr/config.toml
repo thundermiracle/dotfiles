@@ -3,6 +3,7 @@ onboarding = false
 [ui.sound]
 # 質問・承認待ち（blocked）の時だけ差し替え。完了音はデフォルトのまま
 # sounds/request-voidoll.mp3: VOICEVOX:Voidoll(CV:丹下桜)（「質問があります」）
+# herdr-app も同じ mp3 を使う（~/.config/herdr-app/settings.json の sounds.blocked）
 request_path = "sounds/request-voidoll.mp3"
 
 # herdr-file-viewer plugin

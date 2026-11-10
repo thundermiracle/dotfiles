@@ -9,7 +9,6 @@ packages:
     - 'awscli'
     - 'fish'
     brews_arm64:
-    - 'herdr'
     - 'podman'
     - 'docker-compose'
     - 'glow'
@@ -28,13 +27,19 @@ packages:
     - 'raycast'
     - '1password-cli'
     - '1password'
+    # herdr-app ships Apple Silicon builds only. Intel Macs keep the herdr TUI
+    # from .chezmoiexternal.toml.
+    casks_arm64:
+    - 'herdr-app'
     npm_globals:
     - '@antfu/ni'
     - 'aws-cdk'
     - 'skills'
-    herdr_plugins:
-    - 'smarzban/herdr-file-viewer'
     agent_skills:
     - repo: 'herdrdev/herdr'
       skill: 'herdr'
       agent: 'claude-code'
+  # Wherever the herdr TUI runs: Intel Macs and Linux (VPS).
+  # Apple Silicon Macs run herdr-app, which has no herdr plugins.
+  herdr_plugins:
+  - 'smarzban/herdr-file-viewer'

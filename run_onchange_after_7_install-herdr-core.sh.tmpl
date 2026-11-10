@@ -1,0 +1,15 @@
+{{ if or (eq .chezmoi.os "linux") (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "arm64")) -}}
+#!/bin/bash
+# herdr-core (hc) runs herdr-app's terminals: on the Apple Silicon Mac, and on each
+# machine herdr-app adds over SSH (the VPS). It is not the herdr TUI and cannot
+# serve it.
+# Installed once, with its own installer, into ~/.local/bin/herdr-core.
+# herdr-app and `hc update` keep it current after that.
+set -eo pipefail
+
+if command -v herdr-core >/dev/null || [ -x "$HOME/.local/bin/herdr-core" ]; then
+  exit 0
+fi
+
+curl -fsSL https://releases.herdr.dev/core/install.sh | sh
+{{ end -}}

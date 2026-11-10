@@ -35,3 +35,12 @@ stripComponents = 1
 path = "bat"
 executable = true
 {{ end -}}
+{{ if and (eq .chezmoi.os "linux") (or (eq .chezmoi.arch "amd64") (eq .chezmoi.arch "arm64")) -}}
+# VPS (Ubuntu, CentOS, ...): the herdr TUI. Its Linux builds are static, so one
+# binary runs on every distribution.
+["bin/herdr"]
+type = "file"
+url = "https://github.com/herdrdev/herdr/releases/latest/download/herdr-linux-{{ if eq .chezmoi.arch "arm64" }}aarch64{{ else }}x86_64{{ end }}"
+executable = true
+refreshPeriod = "168h"
+{{ end -}}

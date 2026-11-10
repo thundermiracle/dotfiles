@@ -1,0 +1,31 @@
+{{ if or (eq .chezmoi.os "linux") (and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "amd64")) -}}
+#!/bin/bash
+# Wherever the herdr TUI runs: Intel Macs and Linux (VPS). Apple Silicon Macs run
+# herdr-app instead, which has no herdr plugins.
+# An after_ script, so herdr is already installed: .chezmoiexternal.toml downloads
+# it to ~/bin.
+set -e
+
+herdr=$(command -v herdr || true)
+[ -n "$herdr" ] || herdr="$HOME/bin/herdr"
+if [ ! -x "$herdr" ]; then
+  echo "herdr not found. Install herdr, then run chezmoi apply again." >&2
+  exit 1
+fi
+
+# herdr clones plugins with git. Without git it only says "No such file or directory".
+if ! command -v git >/dev/null; then
+  echo "git not found. Install git (apt install git, or dnf install git), then run chezmoi apply again." >&2
+  exit 1
+fi
+
+# `herdr plugin install` reinstalls a plugin that is already installed, so skip those.
+# The repository goes before --yes: herdr 0.9.1 and older exit with a usage error
+# when an option comes first (herdrdev/herdr#4446).
+installed=$("$herdr" plugin list)
+{{ range .packages.herdr_plugins -}}
+if [[ $installed != *"[github:{{ . }}@"* ]]; then
+  "$herdr" plugin install {{ . | quote }} --yes
+fi
+{{ end -}}
+{{ end -}}

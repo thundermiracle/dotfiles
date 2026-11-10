@@ -13,5 +13,10 @@ brew {{ . | quote }}
 {{ range .packages.darwin.casks -}}
 cask {{ . | quote }}
 {{ end -}}
+{{ if eq .chezmoi.arch "arm64" -}}
+{{ range .packages.darwin.casks_arm64 -}}
+cask {{ . | quote }}
+{{ end -}}
+{{ end -}}
 EOF
 {{ end -}}

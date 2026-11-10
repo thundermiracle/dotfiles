@@ -1,0 +1,38 @@
+#!/bin/bash
+# ~/.config/herdr-app/settings.json の sounds.blocked だけを chezmoi で管理する。
+# 質問・承認待ち（blocked）の時だけ差し替え。完了音（sounds.done）はデフォルトのまま。
+# ほかの項目は herdr-app 自身も書き換える（ズームや設定画面）ので触らない。
+# chezmoi が今の中身を標準入力で渡し、標準出力の内容でファイルを置き換える。
+# herdr-app は settings.json の変更を読み直すので、起動中でもそのまま反映される。
+#
+# mp3 は herdr と同じファイル（~/.config/herdr/sounds/request-voidoll.mp3）を使う。
+# herdr-app は ~ を展開しないので絶対パスで書く。
+# .chezmoiignore で Apple Silicon の Mac（herdr-app を入れる Mac）以外では無視する。
+
+blocked={{ printf "%s/.config/herdr/sounds/request-voidoll.mp3" .chezmoi.homeDir | squote }}
+
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp" "$tmp.out"' EXIT
+cat >"$tmp"
+
+if ! command -v jq >/dev/null 2>&1; then
+  if [ -s "$tmp" ]; then
+    echo "modify_settings.json: jq がないので ~/.config/herdr-app/settings.json の sounds.blocked は設定しません" >&2
+    cat "$tmp"
+  else
+    # まだファイルがない（herdr-app を一度も起動していない）ときは jq なしで作る
+    printf '{\n  "sounds": {\n    "blocked": "%s"\n  }\n}\n' "$blocked"
+  fi
+  exit 0
+fi
+
+[ -s "$tmp" ] || echo '{}' >"$tmp"
+if jq -e --arg b "$blocked" '.sounds.blocked == $b' "$tmp" >/dev/null 2>&1; then
+  # 設定済みならそのまま返す（jq に数値の書き方などを変えさせない）
+  cat "$tmp"
+elif jq --arg b "$blocked" '.sounds.blocked = $b' "$tmp" >"$tmp.out"; then
+  cat "$tmp.out"
+else
+  echo "modify_settings.json: ~/.config/herdr-app/settings.json が JSON として読めないので変更しません" >&2
+  cat "$tmp"
+fi
