@@ -52,14 +52,15 @@ herdr-app runs on herdr-core, not on herdr. The VPS gets herdr-core so herdr-app
 The request sound (`~/.config/herdr/sounds/request-voidoll.mp3`) is set in `~/.config/herdr/config.toml` for herdr and in `~/.config/herdr-app/settings.json` (`sounds.blocked`) for herdr-app.
 The sound plays where the window is, not where the agent runs, so a VPS plays nothing itself. To hear the VPS's agents, open the VPS from a Mac: in herdr-app, add it as a machine; in herdr, run `herdr --remote <host>`.
 
-herdr-app also gets the `main-dots` layout: Herdr's `main` layout with `mods/spaces-dots`, a copy of its `spaces` mod that shows herdr's state dot before each space's name instead of the initial's avatar. Switch to it once (the choice is kept):
+herdr-app also gets the `main-dots` layout: Herdr's `main` layout with `mods/spaces-dots`, a copy of its `spaces` mod that shows herdr's state dot before each space's name instead of the initial's avatar.
+`chezmoi apply` switches herdr-app to it once (`run_onchange_after_8_switch-herdr-app-layout.sh`): through the open window, or, when herdr-app isn't running, in `~/.config/herdr-app/shared.json` for its next start. The script runs again only when it changes, so going back to `main` with `ctrl-shift-l` sticks.
+Check the mod after changing it:
 
 ```shell
 herdr-app check ~/.config/herdr-app/mods/spaces-dots
-herdr-app do layout.switch --name main-dots
 ```
 
-`ctrl-shift-l` cycles back to `main`. The copies don't update with herdr-app; to pick up a newer `spaces` mod, copy it again and redo the change described at the top of `main.js`.
+The copies don't update with herdr-app; to pick up a newer `spaces` mod, copy it again and redo the change described at the top of `main.js`.
 
 ## Containers
 

@@ -1,0 +1,59 @@
+{{ if and (eq .chezmoi.os "darwin") (eq .chezmoi.arch "arm64") -}}
+#!/bin/bash
+# herdr-app の表示レイアウトを main-dots（~/.config/herdr-app/layouts/main-dots.json）に切り替える。
+# chezmoi が置くのはファイルだけで、どのレイアウトを出すかは herdr-app が shared.json の "layout" に覚えている。
+# このスクリプトが変わったときだけ動くので、あとで main に戻しても（ctrl-shift-l）上書きしない。
+#   - herdr-app が起動中: そのウィンドウに layout.switch を頼む
+#   - 起動していない: shared.json の "layout" を書き換えて、次の起動で main-dots を開かせる。
+#     起動中の herdr-app は shared.json をメモリの内容で書き戻すので、起動中はファイルに触らない。
+set -eo pipefail
+
+layout=main-dots
+home="$HOME/.config/herdr-app"
+shared="$home/shared.json"
+manual="herdr-app を開いて次を実行してください: herdr-app do layout.switch --name $layout"
+
+app=$(command -v herdr-app || true)
+for candidate in "$app" /Applications/Herdr.app/Contents/MacOS/Herdr "$HOME/Applications/Herdr.app/Contents/MacOS/Herdr"; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    app=$candidate
+    break
+  fi
+done
+
+# status と do はウィンドウのソケットにつなぐだけで、ウィンドウは開かない（なければ失敗する）
+if [ -x "$app" ] && "$app" status >/dev/null 2>&1; then
+  if ! "$app" do layout.switch --name "$layout" >/dev/null; then
+    echo "herdr-app のレイアウトを $layout に切り替えられませんでした。$manual" >&2
+    exit 1
+  fi
+  exit 0
+fi
+
+# ウィンドウに届かないのにアプリは動いている: shared.json はアプリに書き戻されるので触らない
+if pgrep -xq Herdr; then
+  echo "herdr-app に届かないので、レイアウトを $layout に切り替えませんでした。$manual" >&2
+  exit 1
+fi
+
+if [ ! -s "$shared" ]; then
+  # まだ一度も起動していない: 最初の起動から main-dots を開く
+  mkdir -p "$home"
+  printf '{\n  "layout": "%s"\n}\n' "$layout" >"$shared"
+  exit 0
+fi
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq がないので、herdr-app のレイアウトを $layout に切り替えませんでした。$manual" >&2
+  exit 0
+fi
+if jq -e --arg l "$layout" '.layout == $l' "$shared" >/dev/null 2>&1; then
+  exit 0
+fi
+tmp=$(mktemp "$home/.shared.json.XXXXXX")
+trap 'rm -f "$tmp"' EXIT
+if jq --arg l "$layout" '.layout = $l' "$shared" >"$tmp"; then
+  mv -f "$tmp" "$shared"
+else
+  echo "~/.config/herdr-app/shared.json が JSON として読めないので、レイアウトを $layout に切り替えませんでした。$manual" >&2
+fi
+{{ end -}}
