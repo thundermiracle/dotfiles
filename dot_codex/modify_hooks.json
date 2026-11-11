@@ -1,0 +1,43 @@
+#!/bin/bash
+# ~/.codex/hooks.json に agent-resume のフックだけを足す。ほかのフックには触らない。
+# このファイルは herdr の Codex 連携も書き換える。
+# chezmoi が今の中身を標準入力で渡し、標準出力の内容でファイルを置き換える。
+#
+# SessionStart / SessionEnd: agent-resume（~/.local/bin/agent-resume）が herdr-app のターミナルに
+# セッションを記録し、PC の再起動でタブが戻ったときに codex resume で再開する。
+#
+# Codex はフックを 1 つずつ信頼させ、それを ~/.codex/config.toml の [hooks.state] に
+# 「ファイル:イベント:グループの番号:フックの番号」で覚えている。ほかのフックの番号が変わらないよう、
+# 同じコマンドのフックがあればその場で書き換え、なければ末尾にグループを足す（並べ替えも消しもしない）。
+# 足したあと最初に起動した Codex が「Hooks need review」と聞くので、Trust all and continue を選ぶ。
+# herdr の連携がこのファイルを書き直してフックが消えても、次の chezmoi apply がまた足す。
+
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp" "$tmp.out"' EXIT
+cat >"$tmp"
+
+if ! command -v jq >/dev/null 2>&1; then
+  # agent-resume も jq を使うので、jq がなければフックは足さない
+  echo "modify_hooks.json: jq がないので ~/.codex/hooks.json に agent-resume のフックを足しません" >&2
+  cat "$tmp"
+  exit 0
+fi
+
+[ -s "$tmp" ] || echo '{}' >"$tmp"
+if jq --arg bin "$HOME/.local/bin/agent-resume" '
+  def upsert($h):
+    (. // []) as $groups
+    | if any($groups[]; any(.hooks[]?; .command? == $h.command))
+      then $groups | map(if (.hooks | type) == "array"
+                         then .hooks |= map(if .command? == $h.command then $h else . end)
+                         else . end)
+      else $groups + [{hooks: [$h]}]
+      end;
+  .hooks.SessionStart |= upsert({type: "command", command: "\($bin) record codex", timeout: 5})
+  | .hooks.SessionEnd |= upsert({type: "command", command: "\($bin) end codex", timeout: 3})
+' "$tmp" >"$tmp.out"; then
+  cat "$tmp.out"
+else
+  echo "modify_hooks.json: ~/.codex/hooks.json が JSON として読めないので変更しません" >&2
+  cat "$tmp"
+fi

@@ -62,6 +62,21 @@ herdr-app check ~/.config/herdr-app/mods/spaces-dots
 
 The copies don't update with herdr-app; to pick up a newer `spaces` mod, copy it again and redo the change described at the top of `main.js`.
 
+### Resuming agents after a restart
+
+herdr-app's tabs survive a restart, a logout or `hc server stop`, but come back as fresh shells: the program that ran in them isn't started again. `~/.local/bin/agent-resume` brings back the Claude Code and Codex sessions that were running:
+
+- Their `SessionStart` hooks (`~/.claude/settings.json`, `~/.codex/hooks.json`) put the session on the terminal as `resume.*` labels (`hc get <t> --json` shows them). Codex runs the hook at the session's first message; until then, a Codex started in herdr-app is recorded without a session. After `/new`, the previous session stays recorded until the new one's first message.
+- `codex` typed at a prompt in herdr-app runs with `--no-daemon`, as herdr-app's menu starts it: on Codex's shared background server, the session and its hooks run outside the tab and can't be recorded. `command codex` uses the server.
+- The first prompt of a shell that came back types `claude --resume <id>` or `codex resume --no-daemon <id>` in the session's folder (`~/.zshrc`). An agent that hadn't been sent anything yet starts fresh there instead.
+- Quitting the agent yourself (`/exit`, `/quit`, Ctrl-C twice, Ctrl-D) removes the labels, so it doesn't come back after the next restart: `~/.zshrc` checks the exit status of agents typed at the prompt, and the `SessionEnd` hooks cover agents started from herdr-app's menu. An agent killed by a signal, as at shutdown, keeps them.
+
+Each tab, and each pane of a split tab, is its own terminal with its own labels, so a space running several agents gets all of them back. A terminal follows one agent: one started while another is suspended with Ctrl-Z replaces its labels.
+
+Codex asks before running hooks it hasn't seen. After `chezmoi apply` adds them, the next Codex start shows **Hooks need review**: choose **Trust all and continue**. If herdr rewrites `~/.codex/hooks.json`, the next `chezmoi apply` adds them back.
+
+To stop resuming, remove the `agent-resume` line from `~/.zshrc`; the hooks only set labels.
+
 ## Containers
 
 - Intel Macs use Docker Desktop, which is installed manually and not managed by chezmoi.

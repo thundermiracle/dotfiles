@@ -1,0 +1,443 @@
+#!/usr/bin/env bash
+# agent-resume — herdr-app のタブで動いていた Claude Code / Codex を、PC の再起動のあとに再開する
+#
+# herdr-app のタブは herdr-core（hc）の keep 付きのターミナルで、再起動・ログアウト・core の停止のあと、
+# 同じアドレス（$HC_TERMINAL_ID）と同じラベルのまま、新しいログインシェルで戻ってくる。
+# 元のプログラムは起動し直さないので、エージェントが動いている間はターミナルに resume.* の
+# ラベルを貼っておき、戻ってきたシェルがそれを読んで claude --resume / codex resume を打つ。
+#
+#   agent-resume record <claude|codex>  SessionStart のフック。ラベルを貼る
+#   agent-resume end <claude|codex>     SessionEnd のフック。自分で終了したときだけラベルを消す
+#                                       （herdr-app のメニューから起動したエージェントは、終了コードを
+#                                       見られるシェルがないため）
+#   agent-resume init zsh               ~/.zshrc で eval する。戻ってきたシェルで再開し、プロンプトで
+#                                       打ったエージェントが自分で終了したらラベルを消す。
+#                                       プロンプトで打った codex には --no-daemon を付ける
+#
+# ラベル（hc get <t> --json の labels）:
+#   resume.agent / resume.id / resume.cwd  エージェント・セッション ID・フォルダ
+#   resume.args        再開するときにも付ける引数（JSON の配列）
+#   resume.transcript  セッションの記録ファイル。まだなければ再開できないので、新しく起動する
+#   resume.pid / resume.boot  ラベルを持つシェル（ターミナルの最上位のシェル）の pid と起動 ID
+#   resume.agent_pid   エージェントのプロセス
+#
+# ラベルはターミナルごと（タブ、分割したペインごと）なので、同じスペースの複数のタブはそれぞれ戻る。
+# 1 つのターミナルで追うエージェントは 1 つ。Ctrl-Z で止めて別のエージェントを起動すると、後のほうで上書きする。
+# Codex の SessionStart は最初のターンで来るので、まだ何も送っていない Codex は、init zsh の codex 関数が
+# 起動するときにセッション ID なしで貼り、戻ったら同じフォルダーで新しく起動する
+# （/new のあとも、最初のターンまでは前のセッションのまま）。
+# effort は、Claude は claude shim（~/.claude-shim/bin/claude）が、Codex は codex resume 自体が戻す。
+# フックとして呼ばれたときは、何があっても 0 で終わり、セッションを止めない。
+
+UUID_RE='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+
+have_tools() {
+  command -v jq >/dev/null 2>&1 && command -v hc >/dev/null 2>&1
+}
+
+# 起動ごとに変わる ID。pid は再起動をまたぐと同じ番号になりうるので、これと組にして比べる
+# （macOS の kern.boottime は時刻合わせでずれるので使わない）
+boot_id() {
+  if [ -r /proc/sys/kernel/random/boot_id ]; then
+    cat /proc/sys/kernel/random/boot_id
+  else
+    sysctl -n kern.bootsessionuuid 2>/dev/null
+  fi
+}
+
+# JSON（$2）から jq の式（$1。値の配列を返す）で取り出した値を、配列 FIELDS に入れる。
+# null は空文字にする。改行などを含む値でもずれないよう、NUL 区切りで受け渡す
+read_fields() {
+  local f
+  FIELDS=()
+  while IFS= read -r -d '' f; do
+    FIELDS+=("$f")
+  done < <(jq -j "($1)"' | map(. // "" | tostring | gsub("\u0000"; "")) | .[] | (., "\u0000")' <<<"$2" 2>/dev/null)
+}
+
+clear_labels() {
+  hc label "$HC_TERMINAL_ID" resume.agent= resume.id= resume.cwd= resume.args= \
+    resume.transcript= resume.pid= resume.boot= resume.agent_pid= >/dev/null 2>&1
+}
+
+# このフックを動かしているエージェントの pid: 祖先のうち、いちばん近い claude / codex。
+# それが $1（フックの種類）と違う名前なら何も出さない
+agent_pid() {
+  local p=$PPID comm
+  while [ -n "$p" ] && [ "$p" -gt 1 ]; do
+    comm=$(ps -o comm= -p "$p" 2>/dev/null) || return 1
+    case "${comm##*/}" in
+      claude | codex)
+        [ "${comm##*/}" = "$1" ] || return 1
+        echo "$p"
+        return 0
+        ;;
+    esac
+    p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+  done
+  return 1
+}
+
+# エージェントの引数（$2 以降）のうち、再開するときにも付けるものだけを JSON の配列で出す。
+# argv をそのまま写すと、shim が足した --effort や前回の --resume <id>、最初のプロンプトまで
+# 付いてしまうので、決めたものだけを残す。--effort と --model は、再開したセッションが自分で戻す
+keep_args() {
+  local agent=$1 a i=1 n=$#
+  local -a argv=("$@") keep=()
+  while [ "$i" -lt "$n" ]; do
+    a=${argv[$i]}
+    [ "$a" = -- ] && break
+    case "$agent:$a" in
+      claude:--dangerously-skip-permissions | claude:--allow-dangerously-skip-permissions | \
+        claude:--permission-mode=* | claude:--add-dir=* | \
+        codex:--no-daemon | codex:--dangerously-bypass-approvals-and-sandbox | codex:--full-auto | \
+        codex:--approve-for-me | codex:--search | \
+        codex:--sandbox=* | codex:--ask-for-approval=* | codex:--add-dir=* | codex:--profile=*)
+        keep+=("$a")
+        ;;
+      claude:--permission-mode | codex:-s | codex:--sandbox | codex:-a | codex:--ask-for-approval | \
+        codex:--add-dir | codex:-p | codex:--profile)
+        if [ $((i + 1)) -lt "$n" ]; then
+          keep+=("$a" "${argv[$((i + 1))]}")
+          i=$((i + 1))
+        fi
+        ;;
+      claude:--add-dir)
+        # 値をいくつでも取る（次の - で始まる引数まで）
+        keep+=("$a")
+        while [ $((i + 1)) -lt "$n" ] && [ "${argv[$((i + 1))]#-}" = "${argv[$((i + 1))]}" ]; do
+          i=$((i + 1))
+          keep+=("${argv[$i]}")
+        done
+        ;;
+    esac
+    i=$((i + 1))
+  done
+  if [ "${#keep[@]}" -eq 0 ]; then
+    echo '[]'
+  else
+    printf '%s\0' "${keep[@]}" | jq -Rsc 'split("\u0000") | .[:-1]'
+  fi
+}
+
+# エージェントの引数（$2 以降）が、一度きりで終わる起動（claude -p、codex exec など）か
+one_shot() {
+  local agent=$1 a skip=
+  shift
+  for a in "$@"; do
+    [ "$a" = -- ] && return 1
+    if [ "$agent" = claude ]; then
+      case "$a" in
+        --print | --no-session-persistence) return 0 ;;
+        # -p と、-cp のようにまとめた短いオプション
+        -[!-]*) case "$a" in *p*) return 0 ;; esac ;;
+      esac
+      continue
+    fi
+    # codex: 最初の位置引数がサブコマンド。値を取るオプションの値は飛ばす
+    if [ -n "$skip" ]; then
+      skip=
+      continue
+    fi
+    case "$a" in
+      -c | --config | --enable | --disable | --remote | --remote-auth-token-env | -i | --image | \
+        -m | --model | --local-provider | -p | --profile | -s | --sandbox | -C | --cd | --add-dir | \
+        -a | --ask-for-approval)
+        skip=1
+        ;;
+      -*) ;;
+      exec | e | review) return 0 ;;
+      *) return 1 ;;
+    esac
+  done
+  return 1
+}
+
+cmd_record() {
+  local agent=$1 input sid sub cwd transcript term fg pid
+  input=$(cat)
+  case "$agent" in claude | codex) ;; *) return 0 ;; esac
+  [ -n "${HC_TERMINAL_ID:-}" ] && have_tools || return 0
+  read_fields '[.session_id, .agent_id, .cwd, .transcript_path]' "$input"
+  sid=${FIELDS[0]:-} sub=${FIELDS[1]:-} cwd=${FIELDS[2]:-} transcript=${FIELDS[3]:-}
+  [[ $sid =~ $UUID_RE ]] || return 0
+  # Claude のサブエージェント
+  [ -z "$sub" ] || return 0
+  # Codex のツールから起動した codex は、親のスレッド ID を受け継いでいる
+  if [ "$agent" = codex ] && [ -n "${CODEX_THREAD_ID:-}" ] && [ "$CODEX_THREAD_ID" != "$sid" ]; then
+    return 0
+  fi
+  term=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null) || return 0
+  read_fields '[.foreground.pid, .pid]' "$term"
+  fg=${FIELDS[0]:-} pid=${FIELDS[1]:-}
+  # ターミナルの前面にいるエージェント本人のときだけ貼る。エージェントが Bash ツールで起こした
+  # claude -p や codex exec も同じ HC_TERMINAL_ID を受け継ぐので、親のラベルを上書きさせない
+  [ -n "$fg" ] && [ "$(agent_pid "$agent")" = "$fg" ] || return 0
+  read_fields '(.foreground.argv // [])' "$term"
+  one_shot "$agent" "${FIELDS[@]:1}" && return 0
+  hc label "$HC_TERMINAL_ID" \
+    "resume.agent=$agent" "resume.id=$sid" "resume.cwd=$cwd" \
+    "resume.args=$(keep_args "$agent" "${FIELDS[@]:1}")" "resume.transcript=$transcript" \
+    "resume.pid=$pid" "resume.boot=$(boot_id)" "resume.agent_pid=$fg" >/dev/null 2>&1
+  return 0
+}
+
+cmd_end() {
+  local agent=$1 input sid reason term
+  input=$(cat)
+  case "$agent" in claude | codex) ;; *) return 0 ;; esac
+  [ -n "${HC_TERMINAL_ID:-}" ] && have_tools || return 0
+  read_fields '[.session_id, .reason]' "$input"
+  sid=${FIELDS[0]:-} reason=${FIELDS[1]:-}
+  [[ $sid =~ $UUID_RE ]] || return 0
+  # Claude は終わり方を reason で教えてくれる: /exit・Ctrl-C 2 回は prompt_input_exit、
+  # シグナル（シャットダウン）は other、/clear は clear（このあと新しいセッションが始まる）。
+  # Codex はシグナルを受けると終了処理をせずに落ちるので、SessionEnd が来るのは
+  # 自分で終了したときだけ（reason はいつも other）
+  if [ "$agent" = claude ]; then
+    case "$reason" in
+      prompt_input_exit | logout) ;;
+      *) return 0 ;;
+    esac
+  fi
+  term=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null) || return 0
+  read_fields '[.labels["resume.id"], .labels["resume.agent"], .foreground.pid]' "$term"
+  rid=${FIELDS[0]:-} ragent=${FIELDS[1]:-} fg=${FIELDS[2]:-}
+  # このセッションのラベルのときだけ消す
+  if [ "$rid" = "$sid" ]; then
+    clear_labels
+  # まだ ID のない Codex（cmd_pending）は、前面の codex 本人が終わるときだけ消す
+  elif [ -z "$rid" ] && [ "$ragent" = codex ] && [ "$agent" = codex ] && [ -n "$fg" ] &&
+    [ "$(agent_pid codex)" = "$fg" ]; then
+    clear_labels
+  fi
+  return 0
+}
+
+# codex を起動する直前に呼ぶ（init zsh の codex 関数から）。Codex の SessionStart は最初のターンまで
+# 来ないので、まだ何も送っていない Codex も戻せるよう、セッション ID なしで貼っておく。戻ってきた
+# シェルは同じフォルダーで新しく起動し、最初のターンで record が ID を貼る
+# $1: 起動するシェルの pid、$2 以降: codex の引数
+cmd_pending() {
+  local shell_pid=$1 a val= cwd=$PWD term
+  shift
+  [ -n "${HC_TERMINAL_ID:-}" ] && [ -n "$shell_pid" ] && have_tools || return 0
+  # サブコマンドや最初のプロンプト（位置引数）があれば貼らない。プロンプト付きなら SessionStart がすぐ来る。
+  # --remote ならセッションはよそで動く。値を取るオプションの値は飛ばす
+  for a in "$@"; do
+    if [ -n "$val" ]; then
+      if [ "$val" = cd ]; then
+        case "$a" in /*) cwd=$a ;; *) cwd=$PWD/$a ;; esac
+      fi
+      val=
+      continue
+    fi
+    case "$a" in
+      -- | --remote | --remote=*) return 0 ;;
+      -C | --cd) val=cd ;;
+      --cd=*)
+        a=${a#--cd=}
+        case "$a" in /*) cwd=$a ;; *) cwd=$PWD/$a ;; esac
+        ;;
+      -c | --config | --enable | --disable | --remote-auth-token-env | -i | --image | -m | --model | \
+        --local-provider | -p | --profile | -s | --sandbox | --add-dir | -a | --ask-for-approval)
+        val=1
+        ;;
+      -*) ;;
+      *) return 0 ;;
+    esac
+  done
+  term=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null) || return 0
+  # ターミナルの最上位のシェル（メニューから起動したときはラッパー）からだけ
+  read_fields '[.pid]' "$term"
+  [ "${FIELDS[0]:-}" = "$shell_pid" ] || return 0
+  hc label "$HC_TERMINAL_ID" resume.agent=codex resume.id= "resume.cwd=$cwd" \
+    "resume.args=$(keep_args codex "$@")" resume.transcript= \
+    "resume.pid=$shell_pid" "resume.boot=$(boot_id)" resume.agent_pid= >/dev/null 2>&1
+  return 0
+}
+
+# プロンプトで打ったエージェントが、自分で終了したあとに呼ぶ（init zsh の precmd から）。
+# ラベルのエージェントがもう動いていなければ消す。Ctrl-Z で止めているだけなら残す
+cmd_sweep() {
+  local term agent rboot apid comm
+  [ -n "${HC_TERMINAL_ID:-}" ] && have_tools || return 0
+  term=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null) || return 0
+  read_fields '[.labels["resume.agent"], .labels["resume.boot"], .labels["resume.agent_pid"]]' "$term"
+  agent=${FIELDS[0]:-} rboot=${FIELDS[1]:-} apid=${FIELDS[2]:-}
+  [ -n "$agent" ] || return 0
+  if [ -n "$apid" ] && [ "$rboot" = "$(boot_id)" ]; then
+    comm=$(ps -o comm= -p "$apid" 2>/dev/null)
+    case "${comm##*/}" in claude | codex) return 0 ;; esac
+  fi
+  clear_labels
+  return 0
+}
+
+# 戻ってきたシェルが打つコマンドを出す（フォルダ、コマンドの単語の順に、NUL で区切って終える）。
+# 打つものがなければ何も出さない。hc に届かなかったときは 1 で終わる（次のプロンプトでもう一度試す）
+# $1: そのシェルの pid
+cmd_resume_line() {
+  local shell_pid=$1 term i tpid agent sid cwd args transcript rpid rboot parent a fresh=
+  local -a words=() rest=()
+  [ -n "${HC_TERMINAL_ID:-}" ] && [ -n "$shell_pid" ] && have_tools || return 0
+  # 再起動のあとは core が立ち上がったばかりのことがあるので、少し待って試し直す
+  for i in 1 2 3; do
+    term=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null) && break
+    [ "$i" -lt 3 ] || return 1
+    sleep 0.3
+  done
+  read_fields '[.pid] + (.labels // {} | [.["resume.agent"], .["resume.id"], .["resume.cwd"],
+    .["resume.args"], .["resume.transcript"], .["resume.pid"], .["resume.boot"]])' "$term"
+  tpid=${FIELDS[0]:-} agent=${FIELDS[1]:-} sid=${FIELDS[2]:-} cwd=${FIELDS[3]:-} args=${FIELDS[4]:-}
+  transcript=${FIELDS[5]:-} rpid=${FIELDS[6]:-} rboot=${FIELDS[7]:-}
+  [ -n "$agent" ] || return 0
+  # ターミナルの最上位のシェルだけが扱う（その中で起動した zsh や tmux は触らない）
+  if [ "$tpid" != "$shell_pid" ]; then
+    parent=$(ps -o ppid= -p "$shell_pid" 2>/dev/null | tr -d ' ')
+    parent=$(ps -o comm= -p "${parent:-0}" 2>/dev/null)
+    [ "${parent##*/}" = herdr-core ] || return 0
+  fi
+  # ラベルを持つシェルのまま（herdr-app のメニューから起動したエージェントが終わり、ラッパーが exec
+  # したシェルなど）: 戻ってきたのではないので打たない。ラベルも消さない。シャットダウンの SIGTERM では
+  # エージェントだけが落ち、対話シェルは SIGTERM を無視して残るので、ここで消すと再起動のあとに戻せない
+  if [ "$rpid" = "$shell_pid" ] && [ "$rboot" = "$(boot_id)" ]; then
+    return 0
+  fi
+  case "$agent" in claude | codex) ;; *) clear_labels; return 0 ;; esac
+  # Codex は最初のターンまでセッション ID がない（cmd_pending）。そのときは新しく起動する
+  if [ -z "$sid" ] && [ "$agent" = codex ]; then
+    fresh=1
+  elif ! [[ $sid =~ $UUID_RE ]]; then
+    clear_labels
+    return 0
+  fi
+  if ! jq -e 'type == "array" and all(.[]; type == "string")' <<<"$args" >/dev/null 2>&1; then
+    clear_labels
+    return 0
+  fi
+  read_fields '.' "$args"
+  words=(${FIELDS[@]+"${FIELDS[@]}"})
+  # ラベルは消さずに、このシェルが引き継いだことにする。同じシェルではもう打たず、再開した
+  # エージェントを自分で終了すれば消え、そのまま次の再起動を迎えたら、次のシェルがもう一度再開する
+  hc label "$HC_TERMINAL_ID" "resume.pid=$shell_pid" "resume.boot=$(boot_id)" resume.agent_pid= >/dev/null 2>&1
+  # メッセージを一度も送っていないセッションは記録がなく再開できないので、同じ引数で新しく起動する
+  [ -n "$transcript" ] && [ ! -e "$transcript" ] && fresh=1
+  case "$agent" in
+    claude)
+      if [ -n "$fresh" ]; then
+        words=(claude ${words[@]+"${words[@]}"})
+      else
+        words=(claude ${words[@]+"${words[@]}"} --resume "$sid")
+      fi
+      ;;
+    codex)
+      # hc のターミナルでは Codex を --no-daemon で動かす（共有のデーモンだと、セッションもフックもコマンドも hc の外で動く）
+      for a in ${words[@]+"${words[@]}"}; do
+        [ "$a" = --no-daemon ] || rest+=("$a")
+      done
+      if [ -n "$fresh" ]; then
+        words=(codex --no-daemon ${rest[@]+"${rest[@]}"})
+      else
+        words=(codex resume --no-daemon ${rest[@]+"${rest[@]}"} "$sid")
+      fi
+      ;;
+  esac
+  printf '%s\0' "$cwd" "${words[@]}"
+}
+
+cmd_init_zsh() {
+  cat <<'EOF'
+# agent-resume init zsh
+# 戻ってきたタブの最初のプロンプトでエージェントを再開し、プロンプトで打ったエージェントが
+# 自分で終了したらラベルを消す
+typeset -g _agent_resume_tries=0 _agent_resume_ran= _agent_resume_line=
+_agent_resume_preexec() {
+  emulate -L zsh
+  # $3: 実行する行（エイリアスを展開したもの）。precmd で見る $? はその行の最後のコマンドのものなので、
+  # 最後のコマンドが claude / codex の起動か、止めていたジョブを戻す fg のときだけ見る
+  local x
+  local -a last=()
+  for x in ${(z)3}; do
+    case $x in
+      ('|' | '||' | '&&' | ';' | '&' | '|&' | '&|' | '&!') last=() ;;
+      (*) last+=($x) ;;
+    esac
+  done
+  if (( ${last[(I)(*/|)(claude|codex)]} )) || [[ $last[1] == (fg|%*) ]]; then
+    _agent_resume_ran=1
+  fi
+}
+_agent_resume_precmd() {
+  local rc=$?
+  emulate -L zsh
+  if [[ -n $_agent_resume_ran ]]; then
+    _agent_resume_ran=
+    # 0 などで終わったら自分で終了した。130 は Ctrl-C。それ以外の 128 以上はシグナルで落ちた
+    # （シャットダウンなど）か Ctrl-Z で止めたので、ラベルは残す
+    (( rc < 128 || rc == 130 )) && command agent-resume sweep
+  fi
+  (( _agent_resume_tries < 3 )) || return 0
+  (( _agent_resume_tries++ ))
+  local out
+  out=$(command agent-resume resume-line $$) || return 0
+  _agent_resume_tries=3
+  [[ -n $out ]] || return 0
+  # フォルダ、コマンドの単語の順に、NUL で区切って届く
+  local -a w=("${(@0)${out%$'\0'}}")
+  (( $#w > 1 )) || return 0
+  _agent_resume_line=${(j: :)${(@q-)w[2,-1]}}
+  [[ -n $w[1] ]] && _agent_resume_line="cd -- ${(q-)w[1]} && $_agent_resume_line"
+  autoload -Uz add-zle-hook-widget
+  add-zle-hook-widget line-init _agent_resume_line_init
+}
+# 打ったのと同じ扱いで実行する（履歴に残り、Ctrl-Z も効く）
+_agent_resume_line_init() {
+  emulate -L zsh
+  add-zle-hook-widget -d line-init _agent_resume_line_init
+  [[ -n $_agent_resume_line ]] || return 0
+  BUFFER=$_agent_resume_line
+  _agent_resume_line=
+  zle accept-line
+  return 0
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook preexec _agent_resume_preexec
+add-zsh-hook precmd _agent_resume_precmd
+# プロンプトで打った codex も、herdr-app のメニューと同じく --no-daemon で動かす。共有のデーモンに
+# つなぐと、セッションもフックもデーモンの中で動き、どのタブのものか分からないので記録できない。
+# --no-daemon は 2 回付けるとエラーになり、--remote とは一緒に使えない。デーモンを使うときは command codex。
+# 起動する前に、まだ何も送っていなくても戻せるよう、セッション ID なしで貼っておく（メニューから起動した
+# codex もラッパーのシェルでここを通る）。Ctrl-Z で止めたあとの終了コードが変わるので、codex のあとには何も書かない
+function codex {
+  emulate -L zsh
+  local -a flags=(--no-daemon)
+  (( ${argv[(I)(--no-daemon|--remote|--remote=*)]} )) && flags=()
+  command agent-resume pending $$ "$@"
+  command codex $flags "$@"
+}
+EOF
+}
+
+case "${1:-}" in
+  record) cmd_record "${2:-}" ;;
+  end) cmd_end "${2:-}" ;;
+  pending)
+    shift
+    cmd_pending "$@"
+    ;;
+  sweep) cmd_sweep ;;
+  resume-line) cmd_resume_line "${2:-}" || exit 1 ;;
+  init)
+    if [ "${2:-}" != zsh ]; then
+      echo "agent-resume: init supports zsh only" >&2
+      exit 2
+    fi
+    cmd_init_zsh
+    ;;
+  *)
+    echo "usage: agent-resume record|end <claude|codex> | init zsh" >&2
+    exit 2
+    ;;
+esac
+exit 0

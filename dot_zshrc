@@ -105,5 +105,9 @@ cdk() { _op_aws cdk "$@" }
 # keep after path_helper/fnm/pyenv, which move /usr/local/bin (the real claude) ahead
 export PATH="$HOME/.claude-shim/bin:$PATH"
 
+## agent-resume: resumes Claude Code / Codex in herdr-app tabs that a restart brought back
+# keep after the claude shim (resumed Claude goes through it) and before the Kiro post block
+[[ -o interactive && -n $HC_TERMINAL_ID ]] && (( $+commands[agent-resume] )) && eval "$(agent-resume init zsh)"
+
 # Kiro CLI post block. Keep at the bottom of this file.
 [ -x ~/.local/bin/kiro-cli ] && eval "$(~/.local/bin/kiro-cli init zsh post --rcfile zshrc)"
