@@ -26,10 +26,13 @@
 # Codex の SessionStart は最初のターンで来るので、まだ何も送っていない Codex は、init zsh の codex 関数が
 # 起動するときにセッション ID なしで貼り、戻ったら同じフォルダーで新しく起動する
 # （/new のあとも、最初のターンまでは前のセッションのまま）。
-# effort は、Claude は claude shim（~/.claude-shim/bin/claude）が、Codex は codex resume 自体が戻す。
+# モデルと effort は、Claude は statusLine（~/.claude/effort-recorder.sh）の記録から claude shim
+# （~/.claude-shim/bin/claude）が、Codex は codex resume 自体が戻す。
 # フックとして呼ばれたときは、何があっても 0 で終わり、セッションを止めない。
 
 UUID_RE='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+# --model に渡せる形の ID（effort-recorder.sh、claude shim と同じ）
+MODEL_RE='^[A-Za-z0-9][]A-Za-z0-9._:/@[-]*$'
 
 have_tools() {
   command -v jq >/dev/null 2>&1 && command -v hc >/dev/null 2>&1
@@ -80,7 +83,8 @@ agent_pid() {
 
 # エージェントの引数（$2 以降）のうち、再開するときにも付けるものだけを JSON の配列で出す。
 # argv をそのまま写すと、shim が足した --effort や前回の --resume <id>、最初のプロンプトまで
-# 付いてしまうので、決めたものだけを残す。--effort と --model は、再開したセッションが自分で戻す
+# 付いてしまうので、決めたものだけを残す。--effort と --model は残さず、セッションのものに戻す
+# （Claude は statusLine の記録から、Codex は codex resume 自体が）
 keep_args() {
   local agent=$1 a i=1 n=$#
   local -a argv=("$@") keep=()
@@ -118,6 +122,25 @@ keep_args() {
   else
     printf '%s\0' "${keep[@]}" | jq -Rsc 'split("\u0000") | .[:-1]'
   fi
+}
+
+# effort-recorder.sh（Claude の statusLine）がセッション $1 について記録したモデルと effort を、
+# claude の引数にして配列 SAVED に入れる。記録のないセッションを新しく起動するときに使う
+# （再開するときは claude shim が同じ決まりで付け足す）
+claude_saved_args() {
+  local dir=${XDG_CACHE_HOME:-$HOME/.cache} v
+  SAVED=()
+  if [ -z "${ANTHROPIC_MODEL:-}" ] && [ -r "$dir/claude-model/$1" ]; then
+    v=
+    IFS= read -r v <"$dir/claude-model/$1"
+    [[ $v =~ $MODEL_RE ]] && SAVED+=(--model "$v")
+  fi
+  if [ -z "${CLAUDE_CODE_EFFORT_LEVEL:-}" ] && [ -r "$dir/claude-effort/$1" ]; then
+    v=
+    IFS= read -r v <"$dir/claude-effort/$1"
+    case "$v" in low | medium | high | xhigh | max) SAVED+=(--effort "$v") ;; esac
+  fi
+  return 0
 }
 
 # エージェントの引数（$2 以降）が、一度きりで終わる起動（claude -p、codex exec など）か
@@ -322,11 +345,13 @@ cmd_resume_line() {
   # エージェントを自分で終了すれば消え、そのまま次の再起動を迎えたら、次のシェルがもう一度再開する
   hc label "$HC_TERMINAL_ID" "resume.pid=$shell_pid" "resume.boot=$(boot_id)" resume.agent_pid= >/dev/null 2>&1
   # メッセージを一度も送っていないセッションは記録がなく再開できないので、同じ引数で新しく起動する
+  # （Claude は statusLine が記録したモデルと effort も付ける）
   [ -n "$transcript" ] && [ ! -e "$transcript" ] && fresh=1
   case "$agent" in
     claude)
       if [ -n "$fresh" ]; then
-        words=(claude ${words[@]+"${words[@]}"})
+        claude_saved_args "$sid"
+        words=(claude ${SAVED[@]+"${SAVED[@]}"} ${words[@]+"${words[@]}"})
       else
         words=(claude ${words[@]+"${words[@]}"} --resume "$sid")
       fi

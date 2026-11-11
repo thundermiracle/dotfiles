@@ -101,7 +101,7 @@ _op_aws() {
 aws() { _op_aws aws "$@" }
 cdk() { _op_aws cdk "$@" }
 
-## claude shim: adds the recorded --effort when herdr resumes a Claude pane
+## claude shim: adds the recorded --effort and --model when herdr resumes a Claude pane
 # keep after path_helper/fnm/pyenv, which move /usr/local/bin (the real claude) ahead
 export PATH="$HOME/.claude-shim/bin:$PATH"
 

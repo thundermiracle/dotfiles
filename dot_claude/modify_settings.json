@@ -3,8 +3,8 @@
 # ほかの項目は Claude Code 自身も書き換えるので触らない。
 # chezmoi が今の中身を標準入力で渡し、標準出力の内容でファイルを置き換える。
 #
-# statusLine: effort-recorder.sh がセッションごとの effort を記録し、
-# herdr がペインを復元するときに claude shim が --effort として付け足す。
+# statusLine: effort-recorder.sh がセッションごとの effort とモデルを記録し、
+# herdr がペインを復元するときに claude shim が --effort / --model として付け足す。
 #
 # hooks の SessionStart / SessionEnd: agent-resume（~/.local/bin/agent-resume）が herdr-app の
 # ターミナルにセッションを記録し、PC の再起動でタブが戻ったときに claude --resume で再開する。
