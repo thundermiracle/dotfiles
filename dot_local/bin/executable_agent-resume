@@ -81,6 +81,15 @@ agent_pid() {
   return 1
 }
 
+# pid $1 が、ターミナルの前面のジョブの先頭か。hc の見る前面と同じものを、遅れなしに ps で見る。
+# $2: ターミナルの最上位のプロセス。同じ端末か比べる（中で動かした tmux の中などは別の端末）
+foreground_job() {
+  local pgid tpgid tty
+  read -r pgid tpgid tty <<<"$(ps -o pgid=,tpgid=,tty= -p "$1" 2>/dev/null)"
+  [ -n "$pgid" ] && [ "$pgid" = "$1" ] && [ "$tpgid" = "$1" ] &&
+    [ "$tty" = "$(ps -o tty= -p "$2" 2>/dev/null | tr -d ' ')" ]
+}
+
 # エージェントの引数（$2 以降）のうち、再開するときにも付けるものだけを JSON の配列で出す。
 # argv をそのまま写すと、shim が足した --effort や前回の --resume <id>、最初のプロンプトまで
 # 付いてしまうので、決めたものだけを残す。--effort と --model は残さず、セッションのものに戻す
@@ -177,7 +186,7 @@ one_shot() {
 }
 
 cmd_record() {
-  local agent=$1 input sid sub cwd transcript term fg pid
+  local agent=$1 input sid sub cwd transcript term fg pid ap i=0
   input=$(cat)
   case "$agent" in claude | codex) ;; *) return 0 ;; esac
   [ -n "${HC_TERMINAL_ID:-}" ] && have_tools || return 0
@@ -190,12 +199,20 @@ cmd_record() {
   if [ "$agent" = codex ] && [ -n "${CODEX_THREAD_ID:-}" ] && [ "$CODEX_THREAD_ID" != "$sid" ]; then
     return 0
   fi
-  term=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null) || return 0
-  read_fields '[.foreground.pid, .pid]' "$term"
-  fg=${FIELDS[0]:-} pid=${FIELDS[1]:-}
   # ターミナルの前面にいるエージェント本人のときだけ貼る。エージェントが Bash ツールで起こした
   # claude -p や codex exec も同じ HC_TERMINAL_ID を受け継ぐので、親のラベルを上書きさせない
-  [ -n "$fg" ] && [ "$(agent_pid "$agent")" = "$fg" ] || return 0
+  ap=$(agent_pid "$agent") || return 0
+  while :; do
+    term=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null) || return 0
+    read_fields '[.foreground.pid, .pid]' "$term"
+    fg=${FIELDS[0]:-} pid=${FIELDS[1]:-}
+    [ "$fg" = "$ap" ] && break
+    # hc は前面のプロセスを 0.5 秒ほどおきに見直すので、起動した直後（Claude の SessionStart）は、まだ
+    # シェルや、その前に終わったコマンドのままのことがある。ps で見て前面のジョブなら、追いつくまで 2 秒待つ
+    [ "$i" -lt 20 ] && foreground_job "$ap" "$pid" || return 0
+    i=$((i + 1))
+    sleep 0.1
+  done
   read_fields '(.foreground.argv // [])' "$term"
   one_shot "$agent" "${FIELDS[@]:1}" && return 0
   hc label "$HC_TERMINAL_ID" \
