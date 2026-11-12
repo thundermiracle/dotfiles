@@ -4,8 +4,7 @@
 # セッションごとの effort.level を ~/.cache/claude-effort/<session_id> に、
 # モデル（model.id）を ~/.cache/claude-model/<session_id> に記録する。
 # 記録した値は claude shim（~/.claude-shim/bin/claude）が `claude --resume <id>` のときに
-# --effort / --model として付け足す（herdr のペイン復元で effort とモデルを戻すため）。
-# まだ記録（transcript）がなく再開できないセッションは、agent-resume が新しく起動するときに付ける。
+# --effort / --model として付け足す（herdr のペイン復元と agent-resume の再開で effort とモデルを戻すため）。
 #
 # 使い方（~/.claude/settings.json）:
 #   単体で使う:            "command": "~/.claude/effort-recorder.sh"
